@@ -9,20 +9,42 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Validate username
+      - name: Set username
         run: |
           USERNAME="${{ github.event.client_payload.username }}"
+          echo "USERNAME=$USERNAME" >> $GITHUB_ENV
 
-          if [[ -z "$USERNAME" ]]; then
-            echo "Username is empty"
-            exit 1
-          fi
+      - name: Check if GitHub user exists
+        id: check_user
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            https://api.github.com/users/$USERNAME)
+
+          echo "status=$STATUS" >> $GITHUB_OUTPUT
+
+      - name: Stop if user does not exist
+        if: steps.check_user.outputs.status != '200'
+        run: |
+          echo "GitHub user does not exist"
+          exit 1
+
+      - name: Check if already collaborator
+        id: check_collaborator
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Authorization: Bearer ${{ secrets.GH_ADMIN_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            https://api.github.com/repos/tash3080/test-automation-github-access/collaborators/$USERNAME)
+
+          echo "status=$STATUS" >> $GITHUB_OUTPUT
 
       - name: Add collaborator
+        if: steps.check_collaborator.outputs.status == '404'
         run: |
           curl -X PUT \
             -H "Authorization: Bearer ${{ secrets.GH_ADMIN_TOKEN }}" \
             -H "Accept: application/vnd.github+json" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
-            https://api.github.com/repos/tash3080/test-automation-github-access/collaborators/${{ github.event.client_payload.username }} \
+            https://api.github.com/repos/tash3080/test-automation-github-access/collaborators/$USERNAME \
             -d '{"permission":"push"}'
