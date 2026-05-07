@@ -1,0 +1,28 @@
+name: Add Collaborator
+
+on:
+  repository_dispatch:
+    types: [quiz_passed]
+
+jobs:
+  add-user:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Validate username
+        run: |
+          USERNAME="${{ github.event.client_payload.username }}"
+
+          if [[ -z "$USERNAME" ]]; then
+            echo "Username is empty"
+            exit 1
+          fi
+
+      - name: Add collaborator
+        run: |
+          curl -X PUT \
+            -H "Authorization: Bearer ${{ secrets.GH_ADMIN_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            https://api.github.com/repos/tash3080/test-automation-github-access/collaborators/${{ github.event.client_payload.username }} \
+            -d '{"permission":"push"}'
